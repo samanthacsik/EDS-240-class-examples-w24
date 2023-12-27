@@ -1,0 +1,103 @@
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##                                    setup                                 ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#..........................load packages.........................
+library(tidyverse)
+library(janitor)
+
+#......................import fracking data......................
+fracking <- read_csv(here::here("week1", "data", "fracking.csv"))
+
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##                        clean/wrangle fracking data                       ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+fracking_clean <- fracking |> 
+  
+  # clean column names ----
+janitor::clean_names() |> 
+  
+  # clean up dates ----
+  mutate(job_start_date = str_remove(job_start_date, " AM")) |> # remove 'AM' from string
+  mutate(datetime_start = mdy_hms(job_start_date)) |> # convert from string to date (save to new col)
+  mutate(year = year(datetime_start)) |> # create 'year' col from date
+  
+  # select relevant cols ----
+  select(datetime_start, year, state_name, county_name, well_name, total_base_water_volume) |> 
+  
+  # filter out non-state names ----
+  filter(!state_name %in% c("Beaver", "Beckham", "Harper", "Hemphill", "Midland", "Red River", "Roosevelt", "Rusk", "State", "WARD")) |> 
+  
+  # rename state_name to something shorter for typing out when using case_when (not necessary) ----
+  rename(sn = state_name) |> 
+  
+  # make all words title case ----
+  mutate(sn = str_to_title(sn)) |> 
+  
+  # fix misspelled state names ----
+  mutate(sn = case_when(
+    sn == "Colordao" ~ "Colorado",
+    sn == "Loiusiana" ~ "Louisiana",
+    sn == "Louisianna" ~ "Louisiana",
+    sn == "Lousiana" ~ "Louisiana",
+    sn == "New Mexcio" ~ "New Mexico",
+    sn == "Norh Dakota" ~ "North Dakota",
+    sn == "Norht Dakota" ~ "North Dakota",
+    sn == "North  Dakota" ~ "North Dakota",
+    sn == "North Dakata" ~ "North Dakota",
+    sn == "North Dakotta" ~ "North Dakota",
+    sn == "Noth Dakota" ~ "North Dakota",
+    sn == "Pennslvania" ~ "Pennsylvania",
+    sn == "Pennsylavania" ~ "Pennsylvania",
+    sn == "Pennsylvanya" ~ "Pennsylvania",
+    sn == "Penssylvania" ~ "Pennsylvania",
+    sn == "Texasa" ~ "Texas",
+    sn == "Texs" ~ "Texas", 
+    sn == "West Viginia" ~ "West Virginia",
+    sn == "Wyominng" ~ "Wyoming", 
+    TRUE ~ sn # copy over rest of state names from as-is
+  )) |> 
+  
+  # remove rows that have a '?' mark ----
+  filter(!str_detect(string = sn, pattern = "\\?")) |> # `?` is a special chr; escape with `\\` prefix
+  
+  # make all uppercase (so that we can covert abbreviation to state names) ----
+  mutate(sn = str_to_upper(sn)) |> 
+  
+  # mutate abbreviations to full state names ----
+  mutate(sn = ifelse(test = str_length(sn) == 2, # if string in 'sn' col is 2 chrs long
+                   yes = usdata::abbr2state(sn), # replace abbreviation with full state name 
+                   no = sn)) |> # if string in 'sn' col is not 2 chrs long, keep state name as-is
+  
+  # make all words title case again ----
+  mutate(sn = str_to_title(sn)) |> 
+  
+  # create a column of just state abbreviations ----
+  mutate(state_abb = usdata::state2abbr(sn)) |> 
+  
+  # rename 'sn' to 'state_name' again for clarity ----
+  rename(state_name = sn, total_base_water_volume_gal = total_base_water_volume) |> 
+  
+  # move 'state_abb' col after state_name col ----
+  relocate(state_abb, .after = state_name) |> 
+  
+  # convert 'state_name' & 'state_abb' from string to factor ----
+  mutate(state_name = as.factor(state_name),
+         state_abb = as.factor(state_abb)) |> 
+  
+  # remove obs that don't have a measurement for 'total_base_water_volume' (NA) ----
+  drop_na(total_base_water_volume_gal)
+
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+##      basic violin plot of total water used / job (top 3 states, 2015)    ----
+##~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+fracking_clean |> 
+  filter(state_name %in% c("Texas", "Colorado", "North Dakota")) |> 
+  filter(year == 2015) |> 
+  # filter(total_base_water_volume_gal < 70000000) |> # uncomment this line to plot with two extreme outliers excluded
+  group_by(state_name) |> 
+  mutate(state_name = fct_relevel(state_name, c("Texas", "Colorado", "North Dakota"))) |> # pipe directly into ggplot 
+  ggplot(aes(x = state_name, y = total_base_water_volume_gal)) +
+  geom_violin()
