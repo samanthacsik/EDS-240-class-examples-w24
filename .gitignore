@@ -55,3 +55,6 @@ rsconnect/
 
 # ignore all data folders
 /week*/data/
+
+# ignore keys
+/week3/KEYS.R
