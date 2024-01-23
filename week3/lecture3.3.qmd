@@ -1,0 +1,51 @@
+
+## setup 
+
+```{r}
+library(tidycensus)
+library(tidyverse)
+library(janitor)
+library(gghighlight)
+
+source(here::here("week3", "KEYS.R"))
+census_api_key(censusKEY)
+
+lyme <- read_csv(here::here("week3", "data", "LD-Case-Counts-by-County-01-20.csv"))
+
+```
+
+## wrangle
+
+```{r}
+# lyme data ----
+
+lyme_clean <- lyme |> 
+  clean_names() |> 
+  rename(county = ctyname, state = stname, status = ststatus) |> 
+  pivot_longer(cols = 6:25, 
+               names_to = "city_year",
+               values_to = "reported_cases") |> 
+  mutate(year = str_remove(city_year, pattern = "cases"),
+         year = as.factor(year))
+
+lyme_by_state <- lyme_clean |> 
+  group_by(year, state) |> 
+  summarise(total_cases = sum(reported_cases))
+
+
+us_state_pop <- get_estimates(geography = "state",
+                              product = "population",
+                              year = 2019) |> 
+  filter(variable == "POP") |> 
+  select(state = NAME, population = value)
+
+lyme_pop <- left_join(lyme_by_state, us_state_pop) |> 
+  mutate(pop100k = population/100000) |> 
+  mutate(cases_per100k = total_cases/pop100k)
+  
+```
+
+
+
+
+
