@@ -1,0 +1,80 @@
+
+```{r}
+# load pkgs ----
+library(metajam)
+library(tidyverse)
+
+# download data from DataOne ----
+# download_d1_data("https://cn.dataone.org/cn/v2/resolve/https%3A%2F%2Fpasta.lternet.edu%2Fpackage%2Fdata%2Feml%2Fknb-lter-hbr%2F208%2F9%2F3b3cf7ea447cb875d7c7d68ebdfd24c7",
+#                  path = here::here("week4"))
+
+# read in the downlaoded files ----
+stream_chem_all <- read_d1_files(here::here("week4", "data"))
+
+# get the data file ----
+stream_chem_data <- stream_chem_all$data
+
+```
+
+```{r}
+# basic scatter ----
+stream_chem_data |> 
+  filter(waterYr == 2021) |> 
+  ggplot(aes(x = DOC, y = pH)) +
+  geom_point(alpha = 0.5) +
+  geom_rug()
+
+# ggExtra ----
+p1 <- stream_chem_data |> 
+  filter(waterYr == 2021) |> 
+  ggplot(aes(x = DOC, y = pH)) +
+  geom_point(alpha = 0.5)
+
+ggExtra::ggMarginal(p1, type = "boxplot", margins = "x")
+
+# ggExtra (multiple groups) ----
+p2 <- stream_chem_data |> 
+  filter(waterYr == 2021) |> 
+  ggplot(aes(x = DOC, y = pH, color = site)) +
+  geom_point(alpha = 0.5) +
+  theme(legend.position = "bottom")
+
+ggExtra::ggMarginal(p2, type = "density", groupFill = TRUE, groupColour = TRUE)
+```
+
+```{r}
+stream_chem_data |> 
+  filter(waterYr == 2021) |> 
+  filter(site == "W8") |> 
+  ggplot(aes(x = DOC, y = pH)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", se = FALSE)
+```
+
+```{r}
+stream_chem_data |> 
+  filter(waterYr == 2021) |> 
+  ggplot(aes(x = DOC, y = pH, color = site, size = Al_ICP)) +
+  geom_point(alpha = 0.5) +
+  scale_size(range = c(1, 10))
+```
+
+```{r}
+ggplot(stream_chem_data, aes(x = SO4, y = pH, color = site)) +
+  geom_point(size = 0.5, alpha = 0.5) +
+  geom_rug()
+
+# heat map ----
+ggplot(stream_chem_data, aes(x = SO4, y = pH)) +
+  geom_bin2d() +
+  scale_fill_viridis_c()
+
+ggplot(stream_chem_data, aes(x = SO4, y = pH)) +
+  geom_hex() +
+  scale_fill_viridis_c() +
+  guides(fill = guide_colorbar(title = "Count",
+                               barwidth = 1, barheight = 15))
+
+```
+
+
